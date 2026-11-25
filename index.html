@@ -211,6 +211,49 @@ canvas{
   border-top-color:#ffd700;border-radius:50%;animation:spin .85s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Mobile Control Mode Selector ── */
+.ctrl-box{
+  display:none;
+  flex-direction:column;align-items:center;gap:6px;
+}
+.ctrl-box.show{display:flex}
+.ctrl-toggle{
+  display:inline-flex;
+  background:rgba(13,39,102,.85);
+  border:2px solid rgba(255,255,255,.75);
+  border-radius:999px;
+  padding:3px;
+  gap:4px;
+  box-shadow:0 4px 12px rgba(8,28,74,.25);
+}
+.ctrl-opt{
+  cursor:pointer;border:none;outline:none;
+  border-radius:999px;
+  padding:7px 16px;
+  font-size:.82rem;font-weight:800;
+  color:#cfe0ff;background:transparent;
+  transition:background .15s,color .15s;
+  touch-action:manipulation;
+}
+.ctrl-opt.active{
+  background:linear-gradient(180deg,#ffe047 0%,#ffb703 100%);
+  color:#2b1a00;
+  box-shadow:0 2px 6px rgba(0,0,0,.2);
+}
+.ctrl-msg{
+  font-size:.74rem;font-weight:700;
+  color:#112b66;
+  background:rgba(255,248,220,.92);
+  border:1px solid rgba(200,150,40,.45);
+  border-radius:10px;
+  padding:5px 10px;
+  max-width:265px;
+  text-align:center;
+  line-height:1.3;
+  display:none;
+}
+.ctrl-msg.show{display:block}
 </style>
 </head>
 <body>
@@ -241,6 +284,13 @@ canvas{
         <span class="best-pill-lbl">Best Score</span>
         <span class="best-pill-val" id="start-best">0</span>
       </div>
+    </div>
+    <div class="ctrl-box" id="start-ctrl-box">
+      <div class="ctrl-toggle" role="group" aria-label="Controls">
+        <button type="button" class="ctrl-opt" id="opt-tilt-start">📱 Tilt</button>
+        <button type="button" class="ctrl-opt" id="opt-touch-start">👆 Touch</button>
+      </div>
+      <div class="ctrl-msg" id="ctrl-msg-start"></div>
     </div>
     <button class="btn btn-play" id="start-btn">▶ PLAY</button>
   </div>
@@ -273,6 +323,13 @@ canvas{
   <div class="screen off" id="pause-screen">
     <div class="light-card">
       <div class="pause-title">PAUSED</div>
+      <div class="ctrl-box" id="pause-ctrl-box">
+        <div class="ctrl-toggle" role="group" aria-label="Controls">
+          <button type="button" class="ctrl-opt" id="opt-tilt-pause">📱 Tilt</button>
+          <button type="button" class="ctrl-opt" id="opt-touch-pause">👆 Touch</button>
+        </div>
+        <div class="ctrl-msg" id="ctrl-msg-pause"></div>
+      </div>
       <button class="btn btn-green" id="resume-btn">▶ RESUME</button>
       <button class="btn btn-light" id="restart2-btn">↺ RESTART</button>
     </div>
@@ -804,6 +861,22 @@ function drawHUD() {
   roundedRect(ctx, px - 7, py - 9, 5, 18, 2, '#ffffff');
   roundedRect(ctx, px + 2, py - 9, 5, 18, 2, '#ffffff');
 
+  // ── Subtle Tilt Active Indicator (mobile tilt mode only) ──
+  if (isMobileDevice && controlMode === 'tilt' && state === 'play') {
+    const bw = 186, bh = 22, bx = (CW - bw) / 2, by = CH - 30;
+    roundedRect(ctx, bx, by, bw, bh, 11, 'rgba(13, 39, 102, 0.72)', 'rgba(130, 185, 255, 0.4)');
+    ctx.textAlign = 'center';
+    ctx.font = '800 9.5px "Trebuchet MS", system-ui, sans-serif';
+    ctx.fillStyle = '#e2eeff';
+    ctx.fillText('TILT CONTROLS ACTIVE', CW / 2, by + 14);
+    // Subtle left/right steering dot
+    const dotX = CW / 2 + tiltSmoothed * 74;
+    ctx.beginPath();
+    ctx.arc(dotX, by + 11, 3.2, 0, Math.PI * 2);
+    ctx.fillStyle = Math.abs(tiltSmoothed) > 0.08 ? '#ffe047' : '#74c0fc';
+    ctx.fill();
+  }
+
   ctx.restore();
 }
 
@@ -833,13 +906,21 @@ function drawStartBg() {
 function update(dt) {
   const b = ball;
 
-  // Horizontal input (keyboard + phone tilt, or drag)
+  // Horizontal input:
+  // - Desktop: keyboard (ArrowLeft/Right, A/D) + mouse drag (unchanged)
+  // - Mobile Touch mode: touch & drag (unchanged)
+  // - Mobile Tilt mode: smoothed DeviceOrientation steering
   if (isDragging) {
     b.x = Math.max(b.r, Math.min(CW - b.r, dragBallX + (pointerX - dragStartX)));
     b.vx = 0;
+  } else if (isMobileDevice && controlMode === 'tilt') {
+    const alpha = 1 - Math.pow(1 - TILT_CFG.SMOOTHING, dt * 60);
+    tiltSmoothed += (tiltTarget - tiltSmoothed) * alpha;
+    const targetVx = tiltSmoothed * TILT_CFG.MAX_SPEED;
+    b.vx += (targetVx - b.vx) * Math.min(1, dt * 14);
+    b.x  += b.vx * dt;
   } else {
-    const keyIn = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-    const hIn = Math.max(-1, Math.min(1, keyIn + tiltInput));
+    const hIn = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
     b.vx += hIn * H_SPEED_KEY * 12 * dt;
     b.vx *= Math.pow(H_DRAG, dt);
     b.x  += b.vx * dt;
@@ -954,38 +1035,188 @@ function loop(ts) {
   render();
 }
 
-let tiltInput = 0;
-let tiltBound = false;
+// ══════════════════════════════════════════════════════════
+// MOBILE TILT CONTROLLER (DeviceOrientation API)
+// ══════════════════════════════════════════════════════════
+const TILT_CFG = {
+  DEAD_ZONE: 3.5,          // degrees around neutral ignored
+  MAX_ANGLE: 28,           // degrees for full horizontal steer
+  SENSITIVITY: 1.25,       // steering curve multiplier
+  SMOOTHING: 0.22,         // low-pass interpolation factor
+  MAX_SPEED: 480,          // max horizontal speed (px/s)
+  CALIBRATION_OFFSET: 0,   // baseline offset (degrees)
+};
 
-function onDeviceTilt(e) {
-  if (e.gamma == null) return;
-  const deadzone = 3;
-  const maxTilt  = 30;
-  let g = e.gamma;
-  if (Math.abs(g) < deadzone) { tiltInput = 0; return; }
-  g = g > 0 ? g - deadzone : g + deadzone;
-  tiltInput = Math.max(-1, Math.min(1, g / (maxTilt - deadzone)));
+const CTRL_STORAGE_KEY = 'skybats_control_mode';
+const isMobileDevice = (
+  ('ontouchstart' in window || navigator.maxTouchPoints > 0) &&
+  (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+   (window.matchMedia && window.matchMedia('(pointer: coarse)').matches))
+);
+const hasDeviceOrientation = typeof window.DeviceOrientationEvent !== 'undefined';
+
+let controlMode = (() => {
+  if (!isMobileDevice) return 'touch';
+  const saved = localStorage.getItem(CTRL_STORAGE_KEY);
+  if (saved === 'tilt' || saved === 'touch') return saved;
+  return hasDeviceOrientation ? 'tilt' : 'touch';
+})();
+
+let tiltTarget = 0;
+let tiltSmoothed = 0;
+let tiltBound = false;
+let tiltCalibrated = false;
+let tiltOffset = TILT_CFG.CALIBRATION_OFFSET;
+let tiltNotice = '';
+
+function getScreenAngle() {
+  if (window.screen && window.screen.orientation && typeof window.screen.orientation.angle === 'number') {
+    return window.screen.orientation.angle;
+  }
+  return typeof window.orientation === 'number' ? window.orientation : 0;
 }
 
-function enableTiltControls() {
-  if (tiltBound || typeof DeviceOrientationEvent === 'undefined') return;
+function onDeviceTilt(e) {
+  if (state !== 'play' || controlMode !== 'tilt' || !isMobileDevice) return;
+  const angle = getScreenAngle();
+  let raw = null;
+  if (angle === 90) raw = e.beta;
+  else if (angle === -90 || angle === 270) raw = e.beta != null ? -e.beta : null;
+  else if (angle === 180) raw = e.gamma != null ? -e.gamma : null;
+  else raw = e.gamma;
+
+  if (raw == null || Number.isNaN(raw)) return;
+
+  // Auto-calibrate neutral position on first valid reading after start/resume
+  if (!tiltCalibrated) {
+    tiltOffset = Math.max(-20, Math.min(20, raw));
+    tiltCalibrated = true;
+  }
+
+  const delta = raw - tiltOffset;
+  if (Math.abs(delta) <= TILT_CFG.DEAD_ZONE) {
+    tiltTarget = 0;
+    return;
+  }
+
+  const sign = delta > 0 ? 1 : -1;
+  const effective = Math.abs(delta) - TILT_CFG.DEAD_ZONE;
+  const span = Math.max(1, TILT_CFG.MAX_ANGLE - TILT_CFG.DEAD_ZONE);
+  const norm = Math.min(1, effective / span);
+  // Gentle non-linear curve for fine control near center, fast turn on strong tilt
+  tiltTarget = Math.max(-1, Math.min(1, sign * Math.pow(norm, 1.15) * TILT_CFG.SENSITIVITY));
+}
+
+function attachTiltListener() {
+  if (!isMobileDevice || controlMode !== 'tilt' || tiltBound || !hasDeviceOrientation) return;
+  tiltCalibrated = false;
+  tiltTarget = 0;
+  tiltSmoothed = 0;
+  window.addEventListener('deviceorientation', onDeviceTilt);
+  tiltBound = true;
+}
+
+function detachTiltListener() {
+  if (tiltBound) {
+    window.removeEventListener('deviceorientation', onDeviceTilt);
+    tiltBound = false;
+  }
+  tiltTarget = 0;
+  tiltSmoothed = 0;
+}
+
+async function requestTiltPermission() {
+  if (!isMobileDevice) return false;
+  if (!hasDeviceOrientation) {
+    setControlMode('touch', 'Tilt sensors are unavailable on this browser. Using Touch controls.');
+    return false;
+  }
   if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission()
-      .then(res => {
-        if (res === 'granted' && !tiltBound) {
-          window.addEventListener('deviceorientation', onDeviceTilt);
-          tiltBound = true;
-        }
-      })
-      .catch(() => {});
-  } else {
-    window.addEventListener('deviceorientation', onDeviceTilt);
-    tiltBound = true;
+    try {
+      const res = await DeviceOrientationEvent.requestPermission();
+      if (res === 'granted') {
+        tiltNotice = '';
+        syncControlUI();
+        return true;
+      }
+      setControlMode(
+        'touch',
+        'Motion permission denied — using Touch controls. To re-enable Tilt on iOS, reload in Safari or reset Motion & Orientation access.'
+      );
+      return false;
+    } catch {
+      setControlMode(
+        'touch',
+        'Motion permission unavailable — using Touch controls. Tap Tilt after enabling Motion access in Safari.'
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+function setControlMode(mode, noticeMsg = '') {
+  controlMode = mode;
+  tiltNotice = noticeMsg;
+  if (isMobileDevice) localStorage.setItem(CTRL_STORAGE_KEY, mode);
+  if (mode !== 'tilt') detachTiltListener();
+  else if (state === 'play') attachTiltListener();
+  syncControlUI();
+}
+
+function syncControlUI() {
+  const showBox = isMobileDevice;
+  for (const id of ['start-ctrl-box', 'pause-ctrl-box']) {
+    const el = $(id);
+    if (el) el.classList.toggle('show', showBox);
+  }
+  for (const id of ['opt-tilt-start', 'opt-tilt-pause']) {
+    const el = $(id);
+    if (el) el.classList.toggle('active', controlMode === 'tilt');
+  }
+  for (const id of ['opt-touch-start', 'opt-touch-pause']) {
+    const el = $(id);
+    if (el) el.classList.toggle('active', controlMode === 'touch');
+  }
+  for (const id of ['ctrl-msg-start', 'ctrl-msg-pause']) {
+    const el = $(id);
+    if (el) {
+      el.textContent = tiltNotice;
+      el.classList.toggle('show', Boolean(showBox && tiltNotice));
+    }
   }
 }
 
-function startGame() {
-  enableTiltControls();
+async function selectTiltMode() {
+  if (!isMobileDevice) return;
+  const ok = await requestTiltPermission();
+  if (ok) {
+    setControlMode('tilt', '');
+    if (state === 'play') attachTiltListener();
+  }
+}
+
+for (const id of ['opt-tilt-start', 'opt-tilt-pause']) {
+  $(id).onclick = selectTiltMode;
+}
+for (const id of ['opt-touch-start', 'opt-touch-pause']) {
+  $(id).onclick = () => setControlMode('touch', '');
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    detachTiltListener();
+    if (state === 'play') pauseGame();
+  }
+});
+
+async function startGame() {
+  if (isMobileDevice && controlMode === 'tilt') {
+    const ok = await requestTiltPermission();
+    if (ok) attachTiltListener();
+  } else {
+    detachTiltListener();
+  }
   cancelAnimationFrame(rafId);
   score       = 0;
   cameraTop   = 0;
@@ -1004,6 +1235,7 @@ function startGame() {
 function endGame() {
   state = 'over';
   cancelAnimationFrame(rafId);
+  detachTiltListener();
   if (score > best) {
     best = score;
     localStorage.setItem('skybats_best', best);
@@ -1018,6 +1250,8 @@ function pauseGame() {
   if (state !== 'play') return;
   state = 'pause';
   cancelAnimationFrame(rafId);
+  detachTiltListener();
+  syncControlUI();
   render();
   showScreen('pause');
 }
@@ -1026,15 +1260,18 @@ function resumeGame() {
   if (state !== 'pause') return;
   showScreen(null);
   state    = 'play';
+  if (isMobileDevice && controlMode === 'tilt') attachTiltListener();
   lastTime = performance.now();
   rafId    = requestAnimationFrame(loop);
 }
 
 function goHome() {
   cancelAnimationFrame(rafId);
+  detachTiltListener();
   state     = 'start';
   cameraTop = 0;
   $('start-best').textContent = best;
+  syncControlUI();
   showScreen('start');
   drawStartBg();
 }
@@ -1100,6 +1337,8 @@ canvas.addEventListener('touchstart', e => {
   const t = e.changedTouches[0];
   const [lx, ly] = logicalXY(t.clientX, t.clientY);
   if ((lx - (CW - 38)) ** 2 + (ly - 40) ** 2 <= 28 * 28) { pauseGame(); return; }
+  // When Tilt Controls are active on mobile, do not let stray touches override tilt steering
+  if (isMobileDevice && controlMode === 'tilt') return;
   activeTouch = t.identifier;
   isDragging  = true;
   pointerX    = lx;
@@ -1108,6 +1347,7 @@ canvas.addEventListener('touchstart', e => {
 }, { passive: false });
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
+  if (isMobileDevice && controlMode === 'tilt') return;
   for (const t of e.changedTouches)
     if (t.identifier === activeTouch) [pointerX] = logicalXY(t.clientX, t.clientY);
 }, { passive: false });
@@ -1124,6 +1364,7 @@ canvas.addEventListener('touchend', e => {
 // BOOT
 // ══════════════════════════════════════════════════════════
 $('start-best').textContent = best;
+syncControlUI();
 loadAssets();
 </script>
 </body>
