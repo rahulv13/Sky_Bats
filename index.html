@@ -917,7 +917,7 @@ function update(dt) {
     const alpha = 1 - Math.pow(1 - TILT_CFG.SMOOTHING, dt * 60);
     tiltSmoothed += (tiltTarget - tiltSmoothed) * alpha;
     const targetVx = tiltSmoothed * TILT_CFG.MAX_SPEED;
-    b.vx += (targetVx - b.vx) * Math.min(1, dt * 14);
+    b.vx += (targetVx - b.vx) * Math.min(1, dt * 10);
     b.x  += b.vx * dt;
   } else {
     const hIn = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
@@ -1039,11 +1039,11 @@ function loop(ts) {
 // MOBILE TILT CONTROLLER (DeviceOrientation API)
 // ══════════════════════════════════════════════════════════
 const TILT_CFG = {
-  DEAD_ZONE: 3.5,          // degrees around neutral ignored
-  MAX_ANGLE: 28,           // degrees for full horizontal steer
-  SENSITIVITY: 1.25,       // steering curve multiplier
-  SMOOTHING: 0.22,         // low-pass interpolation factor
-  MAX_SPEED: 480,          // max horizontal speed (px/s)
+  DEAD_ZONE: 4.5,          // degrees around neutral ignored
+  MAX_ANGLE: 38,           // degrees for full horizontal steer
+  SENSITIVITY: 0.9,        // steering curve multiplier
+  SMOOTHING: 0.16,         // low-pass interpolation factor
+  MAX_SPEED: 390,          // max horizontal speed (px/s)
   CALIBRATION_OFFSET: 0,   // baseline offset (degrees)
 };
 
@@ -1103,8 +1103,8 @@ function onDeviceTilt(e) {
   const effective = Math.abs(delta) - TILT_CFG.DEAD_ZONE;
   const span = Math.max(1, TILT_CFG.MAX_ANGLE - TILT_CFG.DEAD_ZONE);
   const norm = Math.min(1, effective / span);
-  // Gentle non-linear curve for fine control near center, fast turn on strong tilt
-  tiltTarget = Math.max(-1, Math.min(1, sign * Math.pow(norm, 1.15) * TILT_CFG.SENSITIVITY));
+  // Gentle quadratic-like curve for fine micro-control on small tilts, faster turn on strong tilt
+  tiltTarget = Math.max(-1, Math.min(1, sign * Math.pow(norm, 1.65) * TILT_CFG.SENSITIVITY));
 }
 
 function attachTiltListener() {
