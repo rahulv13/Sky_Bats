@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+<title>Sky Bats</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  width:100%;height:100%;
+  background:#07142b;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;touch-action:none;
+  font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;
+}
+#wrap{
+  position:relative;
+  width:420px;height:700px;
+  max-width:100dvw;max-height:100dvh;
+}
+canvas{
+  display:block;width:100%;height:100%;border-radius:16px;
+  box-shadow:0 12px 50px rgba(0,0,0,.55),0 0 0 2px rgba(255,255,255,.08);
+}
+
+/* ── Overlay screens ── */
+.screen{
+  position:absolute;inset:0;border-radius:16px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:20;transition:opacity .22s ease;
+  padding:24px;
+}
+.screen.off{opacity:0;pointer-events:none}
+
+/* ── Start Screen (matches left panel) ── */
+#start-screen{
+  justify-content:flex-start;
+  padding-top:46px;
+  gap:18px;
+  background:linear-gradient(180deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,0) 60%);
+}
+
+.logo-wrap{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;
+  margin-top:8px;
+  user-select:none;
+}
+.logo-props{
+  position:absolute;
+  top:-28px;right:-26px;
+  width:84px;height:84px;
+  pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+}
+.logo-word{
+  font-weight:900;
+  letter-spacing:.03em;
+  line-height:.88;
+  text-align:center;
+  text-transform:uppercase;
+}
+.logo-sky{
+  font-size:3.1rem;
+  color:#ffffff;
+  -webkit-text-stroke:7px #12337d;
+  paint-order:stroke fill;
+  filter:drop-shadow(0 4px 0 #0c2359);
+  display:block;
+}
+.logo-bats{
+  font-size:4.2rem;
+  color:#ffca18;
+  -webkit-text-stroke:8px #12337d;
+  paint-order:stroke fill;
+  filter:drop-shadow(0 5px 0 #0c2359);
+  display:block;
+  margin-top:-2px;
+}
+
+.start-sub{
+  font-size:1.12rem;
+  font-weight:800;
+  color:#112b66;
+  text-align:center;
+  line-height:1.35;
+  text-shadow:0 1px 0 rgba(255,255,255,.75);
+  margin-top:6px;
+}
+
+.best-pill{
+  display:flex;align-items:center;gap:12px;
+  background:linear-gradient(180deg,#fff9df 0%,#f7e7b4 100%);
+  border:2px solid rgba(255,255,255,.9);
+  box-shadow:0 6px 18px rgba(10,35,90,.22);
+  border-radius:16px;
+  padding:10px 26px;
+  margin-top:4px;
+}
+.best-pill img{width:34px;height:34px;object-fit:contain}
+.best-pill-text{display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.best-pill-lbl{font-size:.76rem;font-weight:800;color:#4a3d1c}
+.best-pill-val{font-size:1.65rem;font-weight:900;color:#221b08}
+
+/* ── Glossy Arcade Buttons ── */
+.btn{
+  cursor:pointer;border:none;outline:none;
+  border-radius:50px;
+  font-weight:900;letter-spacing:.04em;
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  touch-action:manipulation;
+  transition:transform .12s, filter .12s;
+}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.05)}
+.btn:active{transform:translateY(2px)}
+
+.btn-play{
+  width:220px;height:62px;
+  font-size:1.65rem;
+  color:#3c2300;
+  background:linear-gradient(180deg,#ffe047 0%,#ffb703 55%,#f48c06 100%);
+  border:2px solid #fff3b0;
+  box-shadow:0 6px 0 #c96a00, 0 10px 24px rgba(10,30,80,.35);
+  margin-top:8px;
+}
+.btn-play:active{box-shadow:0 2px 0 #c96a00, 0 4px 12px rgba(10,30,80,.3)}
+
+.btn-green{
+  width:228px;height:52px;
+  font-size:1.08rem;
+  color:#fff;
+  background:linear-gradient(180deg,#6be043 0%,#3ab51b 65%,#258a0c 100%);
+  border:2px solid #b5f59c;
+  box-shadow:0 4px 0 #1c6b08, 0 8px 18px rgba(10,35,80,.22);
+  text-shadow:0 1px 2px rgba(0,0,0,.3);
+}
+.btn-green:active{box-shadow:0 1px 0 #1c6b08}
+
+.btn-light{
+  width:228px;height:48px;
+  font-size:1.02rem;
+  color:#15316e;
+  background:linear-gradient(180deg,#eef4ff 0%,#c7daff 100%);
+  border:2px solid #8fb3f7;
+  box-shadow:0 4px 0 #6b91d9, 0 6px 14px rgba(10,35,80,.15);
+}
+.btn-light:active{box-shadow:0 1px 0 #6b91d9}
+
+/* ── Light Card for Game Over & Pause (matches right panel) ── */
+.light-card{
+  position:relative;
+  width:100%;max-width:306px;
+  background:rgba(246,250,255,.95);
+  border:3px solid #ffffff;
+  border-radius:26px;
+  padding:32px 24px 26px;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  box-shadow:0 18px 42px rgba(8,28,74,.38);
+}
+.card-ball-peek{
+  position:absolute;
+  top:-34px;right:14px;
+  width:62px;height:62px;
+  pointer-events:none;
+}
+
+.go-title{
+  text-align:center;
+  line-height:.92;
+  font-weight:900;
+  text-transform:uppercase;
+}
+.go-game{
+  display:block;font-size:2.4rem;color:#ffffff;
+  -webkit-text-stroke:6px #15347a;paint-order:stroke fill;
+  filter:drop-shadow(0 3px 0 #0e2457);
+}
+.go-over{
+  display:block;font-size:2.85rem;
+  color:#ffbe1a;
+  -webkit-text-stroke:7px #15347a;paint-order:stroke fill;
+  filter:drop-shadow(0 4px 0 #0e2457);
+}
+
+.go-stat{text-align:center;line-height:1.15}
+.go-stat-lbl{font-size:.95rem;font-weight:800;color:#1b336b}
+.go-stat-num{font-size:2.75rem;font-weight:900;color:#112759}
+
+.go-best-row{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:4px;
+}
+.go-best-row img{width:34px;height:34px;object-fit:contain}
+.go-best-num{font-size:1.55rem;font-weight:900;color:#112759}
+
+#pause-screen{background:rgba(8,24,64,.45);backdrop-filter:blur(4px)}
+.pause-title{
+  font-size:2.1rem;font-weight:900;color:#15347a;letter-spacing:.04em;
+  margin-bottom:4px;
+}
+
+/* ── Loading ── */
+#loading{
+  position:absolute;inset:0;border-radius:16px;
+  background:rgba(10,32,82,.94);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;z-index:30;color:#fff;font-size:1rem;font-weight:700;
+}
+.spinner{
+  width:44px;height:44px;border:4px solid rgba(255,255,255,.2);
+  border-top-color:#ffd700;border-radius:50%;animation:spin .85s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <span>Loading Sky Bats…</span>
+  </div>
+
+  <!-- Start screen -->
+  <div class="screen off" id="start-screen">
+    <div class="logo-wrap">
+      <div class="logo-props">
+        <img id="logo-ball-img" alt="" style="width:52px;height:52px;object-fit:contain"/>
+      </div>
+      <div class="logo-word">
+        <span class="logo-sky">SKY</span>
+        <span class="logo-bats">BATS</span>
+      </div>
+    </div>
+    <div class="start-sub">Bounce higher.<br>Avoid the gloves.<br>Beat your best!</div>
+    <div class="best-pill">
+      <img id="start-trophy-img" alt="Trophy"/>
+      <div class="best-pill-text">
+        <span class="best-pill-lbl">Best Score</span>
+        <span class="best-pill-val" id="start-best">0</span>
+      </div>
+    </div>
+    <button class="btn btn-play" id="start-btn">▶ PLAY</button>
+  </div>
+
+  <!-- Game Over screen -->
+  <div class="screen off" id="gameover-screen">
+    <div class="light-card">
+      <img class="card-ball-peek" id="go-ball-img" alt=""/>
+      <div class="go-title">
+        <span class="go-game">GAME</span>
+        <span class="go-over">OVER</span>
+      </div>
+      <div class="go-stat">
+        <div class="go-stat-lbl">Your Height</div>
+        <div class="go-stat-num" id="go-score">0</div>
+      </div>
+      <div class="go-best-row">
+        <img id="go-trophy-img" alt="Trophy"/>
+        <div class="go-stat">
+          <div class="go-stat-lbl" style="font-size:.82rem">Best Score</div>
+          <div class="go-best-num" id="go-best">0</div>
+        </div>
+      </div>
+      <button class="btn btn-green" id="restart-btn">↻ PLAY AGAIN</button>
+      <button class="btn btn-light" id="home-btn">🏠 HOME</button>
+    </div>
+  </div>
+
+  <!-- Pause screen -->
+  <div class="screen off" id="pause-screen">
+    <div class="light-card">
+      <div class="pause-title">PAUSED</div>
+      <button class="btn btn-green" id="resume-btn">▶ RESUME</button>
+      <button class="btn btn-light" id="restart2-btn">↺ RESTART</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ══════════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════════
+const CW = 420, CH = 700;
+const GRAV        = 1980;   // worldY-up: gravity reduces vy
+const BOUNCE_VEL  = 900;    // positive = upward launch
+const H_SPEED_KEY = 410;
+const H_DRAG      = 0.06;
+const BAT_W       = 112;
+const BAT_H       = 18;
+const BALL_R      = 17;
+const GAP_MIN     = 76;
+const GAP_MAX     = 124;
+const GLOVE_H     = 54;
+
+// ══════════════════════════════════════════════════════════
+// TOP-LEVEL STATE (declared first to avoid TDZ)
+// ══════════════════════════════════════════════════════════
+let dpr       = window.devicePixelRatio || 1;
+let state     = 'loading'; // loading|start|play|pause|over
+let ball, bats, gloves, particles, trailPoints, cameraTop, score, rafId, lastTime;
+let best      = +(localStorage.getItem('skybats_best') || 0);
+let prevBallX = CW / 2;
+const keys    = { left:false, right:false };
+let isDragging=false, pointerX=0, dragStartX=0, dragBallX=0, activeTouch=null;
+let bgImg=null, spriteSheet=null;
+const sprites = {};
+
+// ══════════════════════════════════════════════════════════
+// DOM
+// ══════════════════════════════════════════════════════════
+const canvas  = document.getElementById('c');
+const ctx     = canvas.getContext('2d');
+const $ = id  => document.getElementById(id);
+const loading = $('loading');
+const screens = { start:$('start-screen'), over:$('gameover-screen'), pause:$('pause-screen') };
+
+function resizeCanvas() {
+  dpr = window.devicePixelRatio || 1;
+  canvas.width  = CW * dpr;
+  canvas.height = CH * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function toScreen(wy) { return CH - (wy - cameraTop); }
+
+// ══════════════════════════════════════════════════════════
+// ASSET MANAGER (Pixel-accurate dynamic atlas extraction)
+// ══════════════════════════════════════════════════════════
+function loadImage(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload  = () => resolve(img);
+    img.onerror = () => { console.warn('Failed to load:', src); resolve(null); };
+    img.src = src;
+  });
+}
+
+function findBands(flags, minGap) {
+  const bands = [];
+  let inB = false, start = 0, gap = 0;
+  for (let i = 0; i < flags.length; i++) {
+    if (flags[i]) {
+      if (!inB) { start = i; inB = true; }
+      gap = 0;
+    } else if (inB) {
+      gap++;
+      if (gap > minGap) {
+        bands.push([start, i - gap]);
+        inB = false; gap = 0;
+      }
+    }
+  }
+  if (inB) bands.push([start, flags.length - 1]);
+  return bands;
+}
+
+/**
+ * Extract an individual sprite from the sheet's ImageData,
+ * tightening its bounding box and removing the white background cleanly.
+ */
+function extractTightSprite(sheetImg, fullData, SW, x0, y0, x1, y1, whiteThresh = 236) {
+  // Tighten bounds so there is zero clipping and zero neighbor bleed
+  let minX = x1, maxX = x0, minY = y1, maxY = y0;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const idx = (y * SW + x) * 4;
+      if (fullData[idx] < 236 || fullData[idx+1] < 236 || fullData[idx+2] < 236) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < minX || maxY < minY) return null;
+
+  const pad = 2;
+  minX = Math.max(0, minX - pad);
+  minY = Math.max(0, minY - pad);
+  maxX = Math.min(SW - 1, maxX + pad);
+  maxY = Math.min(sheetImg.naturalHeight - 1, maxY + pad);
+
+  const sw = maxX - minX + 1;
+  const sh = maxY - minY + 1;
+
+  const oc  = document.createElement('canvas');
+  oc.width  = sw; oc.height = sh;
+  const octx = oc.getContext('2d');
+  octx.drawImage(sheetImg, minX, minY, sw, sh, 0, 0, sw, sh);
+
+  const id = octx.getImageData(0, 0, sw, sh);
+  const d  = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+    const minC = Math.min(r, g, b);
+    const maxC = Math.max(r, g, b);
+    // Pure or near-white background removal
+    if (minC >= whiteThresh) {
+      d[i+3] = 0;
+    } else if (minC > 205 && (maxC - minC) < 22) {
+      const alpha = 1 - (minC - 205) / (whiteThresh - 205);
+      d[i+3] = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+    }
+  }
+  octx.putImageData(id, 0, 0);
+  return oc;
+}
+
+/**
+ * Automatically detect all 6 rows and their individual sprite bounding boxes
+ * from sprites.jpg so no sprite is ever clipped or contaminated by neighbors.
+ */
+function buildSpriteAtlas(img) {
+  const SW = img.naturalWidth, SH = img.naturalHeight;
+  const tmp = document.createElement('canvas');
+  tmp.width = SW; tmp.height = SH;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(img, 0, 0);
+  const fullData = tctx.getImageData(0, 0, SW, SH).data;
+
+  // 1. Detect row bands
+  const rowFlags = new Array(SH).fill(false);
+  for (let y = 0; y < SH; y++) {
+    let cnt = 0;
+    for (let x = 0; x < SW; x++) {
+      const i = (y * SW + x) * 4;
+      if (fullData[i] < 236 || fullData[i+1] < 236 || fullData[i+2] < 236) cnt++;
+    }
+    rowFlags[y] = cnt > 5;
+  }
+  const rowBands = findBands(rowFlags, 8);
+
+  // 2. For each row band, detect column bands
+  const grid = rowBands.map(([ry0, ry1]) => {
+    const colFlags = new Array(SW).fill(false);
+    for (let x = 0; x < SW; x++) {
+      let cnt = 0;
+      for (let y = ry0; y <= ry1; y++) {
+        const i = (y * SW + x) * 4;
+        if (fullData[i] < 236 || fullData[i+1] < 236 || fullData[i+2] < 236) cnt++;
+      }
+      colFlags[x] = cnt > 3;
+    }
+    // Use 20px minGap so multi-part sprites (like sparkles/clouds) stay together
+    const colBands = findBands(colFlags, 20);
+    return colBands.map(([cx0, cx1]) =>
+      extractTightSprite(img, fullData, SW, cx0, ry0, cx1, ry1)
+    );
+  });
+
+  // Assign named sprites from detected grid
+  if (grid[0]) {
+    sprites.ballNormal  = grid[0][0] || null;
+    sprites.ballSquash  = grid[0][1] || sprites.ballNormal;
+    sprites.ballStretch = grid[0][2] || sprites.ballNormal;
+    sprites.ballAngled  = grid[0][3] || sprites.ballNormal;
+  }
+  if (grid[1]) {
+    sprites.batGold = grid[1][0] || null;
+    sprites.batSlim = grid[1][1] || sprites.batGold;
+  }
+  if (grid[2]) {
+    sprites.batLight  = grid[2][0] || sprites.batSlim;
+    sprites.batMoving = grid[2][1] || sprites.batLight;
+  }
+  if (grid[3]) {
+    sprites.gloveOpen  = grid[3][0] || null;
+    sprites.gloveBack1 = grid[3][1] || sprites.gloveOpen;
+    sprites.gloveBack2 = grid[3][2] || sprites.gloveOpen;
+  }
+  if (grid[4]) {
+    sprites.trophy    = grid[4][0] || null;
+    sprites.explosion = grid[4][1] || null;
+    sprites.sparkles  = grid[4][2] || null;
+  }
+  if (grid[5]) {
+    sprites.clouds     = grid[5][0] || null;
+    sprites.ballMotion = grid[5][1] || null;
+    sprites.shadow     = grid[5][2] || null;
+  }
+
+  // Populate UI <img> elements from extracted sprites
+  if (sprites.trophy) {
+    const tUrl = sprites.trophy.toDataURL();
+    $('start-trophy-img').src = tUrl;
+    $('go-trophy-img').src    = tUrl;
+  }
+  if (sprites.ballNormal) {
+    const bUrl = sprites.ballNormal.toDataURL();
+    $('logo-ball-img').src = bUrl;
+    $('go-ball-img').src   = bUrl;
+  }
+}
+
+async function loadAssets() {
+  [bgImg, spriteSheet] = await Promise.all([
+    loadImage('assets/background.jpg'),
+    loadImage('assets/sprites.jpg'),
+  ]);
+  if (spriteSheet) buildSpriteAtlas(spriteSheet);
+  loading.style.display = 'none';
+  state = 'start';
+  showScreen('start');
+  drawStartBg();
+}
+
+// ══════════════════════════════════════════════════════════
+// BACKGROUND RENDERING
+// ══════════════════════════════════════════════════════════
+function drawBackground() {
+  if (!bgImg) {
+    const g = ctx.createLinearGradient(0,0,0,CH);
+    g.addColorStop(0,'#0e56b8'); g.addColorStop(0.55,'#2b8de3'); g.addColorStop(1,'#87d7fa');
+    ctx.fillStyle = g; ctx.fillRect(0,0,CW,CH);
+    return;
+  }
+
+  const BW = bgImg.naturalWidth, BH = bgImg.naturalHeight;
+  const scale = CW / BW;
+  const drawH = BH * scale; // ~752px for 571x1024
+  // Keep stadium visible at bottom on start, scroll sky gently upward as player climbs
+  const parallax = Math.min(cameraTop * 0.04, 80);
+  const dy = CH - drawH + parallax;
+
+  if (dy > 0) {
+    // Seamless sky fill above image top
+    ctx.fillStyle = '#186ad1';
+    ctx.fillRect(0, 0, CW, dy + 2);
+  }
+  ctx.drawImage(bgImg, 0, dy, CW, drawH);
+
+  // Floating decorative clouds high in the sky as player climbs
+  if (sprites.clouds && cameraTop > 120) {
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    const cw = 110, ch = Math.round(cw * sprites.clouds.height / sprites.clouds.width);
+    const cy1 = ((cameraTop * 0.15) % (CH + 140)) - 70;
+    const cy2 = (((cameraTop * 0.15) + 360) % (CH + 140)) - 70;
+    ctx.drawImage(sprites.clouds, 24, cy1, cw, ch);
+    ctx.drawImage(sprites.clouds, CW - cw - 20, cy2, cw, ch);
+    ctx.restore();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// SPRITE DRAWING
+// ══════════════════════════════════════════════════════════
+function drawTrail() {
+  if (trailPoints.length < 2) return;
+  ctx.save();
+  for (let i = 1; i < trailPoints.length; i++) {
+    const p0 = trailPoints[i - 1];
+    const p1 = trailPoints[i];
+    const alpha = (i / trailPoints.length) * 0.55;
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth = (i / trailPoints.length) * 10;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(p0.x, toScreen(p0.wy));
+    ctx.lineTo(p1.x, toScreen(p1.wy));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawBall(b) {
+  const sx = b.x;
+  const sy = toScreen(b.worldY);
+
+  let sp = sprites.ballNormal;
+  if (b.sqTimer > 0.04 && sprites.ballSquash) sp = sprites.ballSquash;
+
+  const D = BALL_R * 2.15;
+
+  if (sp) {
+    const aspect = sp.width / sp.height;
+    const drawW = D * Math.max(1, aspect);
+    const drawH = D / Math.max(1, 1 / aspect);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(b.rot);
+    ctx.scale(b.stretch, b.squash);
+    ctx.drawImage(sp, -drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.fillStyle = '#cc2222';
+    ctx.beginPath(); ctx.arc(0, 0, BALL_R, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawBat(bat) {
+  const sy = toScreen(bat.worldY);
+  // Use sleek light-wood bat with blue stripes (matches reference!) and motion-line bat for moving bats
+  const sp = bat.moving
+    ? (sprites.batMoving || sprites.batLight || sprites.batSlim)
+    : (sprites.batLight  || sprites.batSlim  || sprites.batGold);
+
+  if (sp) {
+    // Preserve exact sprite aspect ratio; if batMoving has speed lines on left, offset slightly so blade aligns with hitbox
+    const aspect = sp.height / sp.width;
+    const drawW  = bat.moving ? BAT_W * 1.18 : BAT_W;
+    const drawH  = Math.max(20, Math.round(drawW * aspect));
+    const drawX  = bat.moving ? bat.x - (drawW - BAT_W) : bat.x;
+    ctx.drawImage(sp, drawX, sy - 4, drawW, drawH);
+  } else {
+    ctx.fillStyle = '#d4a843';
+    ctx.fillRect(bat.x, sy, BAT_W, BAT_H);
+  }
+}
+
+function drawGlove(g) {
+  const sy = toScreen(g.worldY);
+  const sp = g.variant === 0 ? (sprites.gloveOpen  || sprites.gloveBack1)
+           : g.variant === 1 ? (sprites.gloveBack1 || sprites.gloveOpen)
+           :                   (sprites.gloveBack2 || sprites.gloveOpen);
+  if (sp) {
+    const aspect = sp.width / sp.height;
+    const h = GLOVE_H;
+    const w = Math.round(h * aspect);
+    ctx.drawImage(sp, g.x - w / 2, sy - h / 2, w, h);
+  } else {
+    ctx.fillStyle = '#4c7be0';
+    ctx.beginPath(); ctx.ellipse(g.x, sy, 22, 26, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// PARTICLES
+// ══════════════════════════════════════════════════════════
+function spawnBounceParticles(x, worldY) {
+  for (let i = 0; i < 6; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const life  = 0.32 + Math.random() * 0.22;
+    particles.push({
+      x, worldY,
+      vx: Math.cos(angle) * (45 + Math.random() * 55),
+      vy: Math.sin(angle) * (30 + Math.random() * 50) + 60,
+      life, maxLife: life,
+      size: 3 + Math.random() * 3.5,
+      color: ['#ffe066','#ffffff','#74c0fc'][i % 3],
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.worldY += p.vy * dt;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const alpha = p.life / p.maxLife;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, toScreen(p.worldY), p.size * alpha, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// ENTITIES
+// ══════════════════════════════════════════════════════════
+function makeBall() {
+  return {
+    x: CW / 2, worldY: 115,
+    vx: 0, vy: 640,
+    r: BALL_R,
+    rot: 0, squash: 1, stretch: 1, sqTimer: 0,
+  };
+}
+
+function makeBat(worldY, heightAbs) {
+  const movingProb = heightAbs > 350 ? Math.min(0.45, 0.2 + (heightAbs - 350) / 4000) : 0;
+  const moving = Math.random() < movingProb;
+  return {
+    x: 16 + Math.random() * (CW - BAT_W - 32),
+    worldY,
+    moving,
+    dir: Math.random() < 0.5 ? 1 : -1,
+    speed: 55 + Math.random() * 65,
+  };
+}
+
+function spawnInitialBats() {
+  bats = [];
+  // Starting bat right under the ball, plus 4-5 visible bats above like the reference
+  bats.push({ x: CW / 2 - BAT_W / 2, worldY: 64, moving: false, dir: 1, speed: 0 });
+  let y = 64;
+  for (let i = 0; i < 24; i++) {
+    y += GAP_MIN + Math.random() * (GAP_MAX - GAP_MIN);
+    bats.push(makeBat(y, y - 64));
+  }
+}
+
+function topBatWorldY() {
+  let top = -Infinity;
+  for (const b of bats) if (b.worldY > top) top = b.worldY;
+  return top;
+}
+
+function ensureBats() {
+  while (true) {
+    const above = bats.filter(b => b.worldY > cameraTop).length;
+    if (above >= 12) break;
+    const ny = topBatWorldY() + GAP_MIN + Math.random() * (GAP_MAX - GAP_MIN);
+    bats.push(makeBat(ny, ny - 64));
+  }
+  bats = bats.filter(b => b.worldY > cameraTop - 50);
+}
+
+function ensureGloves() {
+  if (score < 25) return; // Introduce gloves early enough to see during climb
+  const maxG = Math.min(2 + Math.floor(score / 150), 6);
+  let tries = 0;
+  while (gloves.length < maxG && tries < 25) {
+    tries++;
+    const baseY = cameraTop + CH + 20 + Math.random() * 240;
+    // Ensure glove doesn't sit right on top of a bat
+    const conflict = bats.find(b => Math.abs(b.worldY - baseY) < 58);
+    if (conflict) continue;
+    gloves.push({
+      x: 40 + Math.random() * (CW - 80),
+      worldY: baseY,
+      moving: score > 75 && Math.random() < 0.4,
+      speed: 45 + Math.random() * 50,
+      phase: Math.random() * Math.PI * 2,
+      variant: Math.floor(Math.random() * 3),
+    });
+  }
+  gloves = gloves.filter(g => g.worldY > cameraTop - 60);
+}
+
+// ══════════════════════════════════════════════════════════
+// HUD DRAWING (Matches reference middle panel)
+// ══════════════════════════════════════════════════════════
+function roundedRect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);   ctx.arcTo(x+w,y,  x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);   ctx.arcTo(x,y+h,  x,y+h-r,r);
+  ctx.lineTo(x,y+r);     ctx.arcTo(x,y,    x+r,y,  r);
+  ctx.closePath();
+  if (fill)   { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+}
+
+function drawHUD() {
+  ctx.save();
+
+  // ── Top-left: Height pill ──
+  roundedRect(ctx, 14, 14, 102, 58, 14, 'rgba(13, 39, 102, 0.90)', 'rgba(84, 140, 245, 0.55)');
+  ctx.textAlign = 'center';
+  ctx.font = '700 13px "Trebuchet MS", system-ui, sans-serif';
+  ctx.fillStyle = '#cfe0ff';
+  ctx.fillText('Height', 14 + 51, 33);
+  ctx.font = '900 26px "Trebuchet MS", system-ui, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(score, 14 + 51, 61);
+
+  // ── Top-center: Best pill with clean trophy ──
+  const bestX = CW / 2 - 48, bestW = 112;
+  roundedRect(ctx, bestX, 14, bestW, 52, 14, 'rgba(13, 39, 102, 0.90)', 'rgba(84, 140, 245, 0.55)');
+  ctx.font = '700 12px "Trebuchet MS", system-ui, sans-serif';
+  ctx.fillStyle = '#cfe0ff';
+  ctx.fillText('Best', bestX + bestW / 2 + 8, 31);
+
+  if (sprites.trophy) {
+    ctx.drawImage(sprites.trophy, bestX + 10, 25, 26, 28);
+  }
+  ctx.font = '900 21px "Trebuchet MS", system-ui, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(Math.max(score, best), bestX + bestW / 2 + 12, 55);
+  ctx.textAlign = 'left';
+
+  // ── Top-right: Circular royal-blue pause button ──
+  const px = CW - 38, py = 40, pr = 23;
+  const pGrad = ctx.createLinearGradient(px, py - pr, px, py + pr);
+  pGrad.addColorStop(0, '#2c7ef8');
+  pGrad.addColorStop(1, '#1143a8');
+  ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2);
+  ctx.fillStyle = pGrad; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(165, 210, 255, 0.85)'; ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  roundedRect(ctx, px - 7, py - 9, 5, 18, 2, '#ffffff');
+  roundedRect(ctx, px + 2, py - 9, 5, 18, 2, '#ffffff');
+
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════
+function render() {
+  ctx.clearRect(0, 0, CW, CH);
+  drawBackground();
+  for (const b of bats)   drawBat(b);
+  drawTrail();
+  drawParticles();
+  for (const g of gloves) drawGlove(g);
+  drawBall(ball);
+  if (state === 'play' || state === 'pause') drawHUD();
+}
+
+function drawStartBg() {
+  cameraTop = 0;
+  ctx.clearRect(0, 0, CW, CH);
+  drawBackground();
+}
+
+// ══════════════════════════════════════════════════════════
+// UPDATE
+// ══════════════════════════════════════════════════════════
+function update(dt) {
+  const b = ball;
+
+  // Horizontal input (keyboard + phone tilt, or drag)
+  if (isDragging) {
+    b.x = Math.max(b.r, Math.min(CW - b.r, dragBallX + (pointerX - dragStartX)));
+    b.vx = 0;
+  } else {
+    const keyIn = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    const hIn = Math.max(-1, Math.min(1, keyIn + tiltInput));
+    b.vx += hIn * H_SPEED_KEY * 12 * dt;
+    b.vx *= Math.pow(H_DRAG, dt);
+    b.x  += b.vx * dt;
+  }
+  if (b.x < -b.r)      b.x = CW + b.r;
+  if (b.x > CW + b.r)  b.x = -b.r;
+
+  // Vertical physics
+  b.vy     -= GRAV * dt;
+  b.worldY += b.vy * dt;
+
+  // Motion trail while rising
+  if (b.vy > 140) {
+    trailPoints.push({ x: b.x, wy: b.worldY });
+    if (trailPoints.length > 10) trailPoints.shift();
+  } else if (trailPoints.length > 0) {
+    trailPoints.shift();
+  }
+
+  // Rotation
+  const velForRot = isDragging ? (b.x - prevBallX) / Math.max(dt, 0.001) : b.vx;
+  b.rot += velForRot * 0.004 * dt * 60;
+  prevBallX = b.x;
+
+  // Squash decay
+  if (b.sqTimer > 0) {
+    b.sqTimer -= dt;
+    const t = Math.max(0, b.sqTimer / 0.14);
+    b.squash  = 1 - t * 0.24;
+    b.stretch = 1 + t * 0.18;
+  } else {
+    b.squash = 1; b.stretch = 1;
+  }
+
+  // Smooth camera follow upward
+  const ballScreen = CH - (b.worldY - cameraTop);
+  if (ballScreen < CH * 0.44) {
+    cameraTop = b.worldY - CH * 0.56;
+  }
+
+  // Score = max height reached
+  const h = Math.max(0, Math.round(b.worldY / 10));
+  if (h > score) score = h;
+
+  // Moving bats & gloves
+  const now = performance.now() / 1000;
+  for (const bat of bats) {
+    if (!bat.moving) continue;
+    bat.x += bat.dir * bat.speed * dt;
+    if (bat.x < 12 || bat.x + BAT_W > CW - 12) {
+      bat.dir *= -1;
+      bat.x = Math.max(12, Math.min(CW - BAT_W - 12, bat.x));
+    }
+  }
+  for (const g of gloves) {
+    if (!g.moving) continue;
+    g.x = 36 + (Math.sin(now * g.speed / 55 + g.phase) * 0.5 + 0.5) * (CW - 72);
+  }
+
+  ensureBats();
+  ensureGloves();
+  updateParticles(dt);
+
+  // Collision: ball -> bat (only when descending)
+  if (b.vy < 0) {
+    for (const bat of bats) {
+      const ballBottom = b.worldY - b.r;
+      const batTop     = bat.worldY;
+      const travel     = Math.abs(b.vy) * dt + 18;
+      if (
+        ballBottom <= batTop &&
+        ballBottom >= batTop - travel &&
+        b.x + b.r * 0.65 > bat.x &&
+        b.x - b.r * 0.65 < bat.x + BAT_W
+      ) {
+        b.worldY  = batTop + b.r;
+        b.vy      = BOUNCE_VEL;
+        b.squash  = 0.76;
+        b.stretch = 1.18;
+        b.sqTimer = 0.14;
+        trailPoints = [{ x: b.x, wy: b.worldY }];
+        spawnBounceParticles(b.x, batTop);
+        break;
+      }
+    }
+  }
+
+  // Collision: ball -> glove
+  for (const g of gloves) {
+    const dx = b.x - g.x;
+    const dy = b.worldY - g.worldY;
+    const hitR = b.r + 18;
+    if (dx * dx + dy * dy < hitR * hitR) {
+      endGame();
+      return;
+    }
+  }
+
+  // Fell below screen
+  if (toScreen(b.worldY) > CH + 90) endGame();
+}
+
+// ══════════════════════════════════════════════════════════
+// GAME LOOP & LIFECYCLE
+// ══════════════════════════════════════════════════════════
+function loop(ts) {
+  if (state !== 'play') return;
+  rafId = requestAnimationFrame(loop);
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  render();
+}
+
+let tiltInput = 0;
+let tiltBound = false;
+
+function onDeviceTilt(e) {
+  if (e.gamma == null) return;
+  const deadzone = 3;
+  const maxTilt  = 30;
+  let g = e.gamma;
+  if (Math.abs(g) < deadzone) { tiltInput = 0; return; }
+  g = g > 0 ? g - deadzone : g + deadzone;
+  tiltInput = Math.max(-1, Math.min(1, g / (maxTilt - deadzone)));
+}
+
+function enableTiltControls() {
+  if (tiltBound || typeof DeviceOrientationEvent === 'undefined') return;
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(res => {
+        if (res === 'granted' && !tiltBound) {
+          window.addEventListener('deviceorientation', onDeviceTilt);
+          tiltBound = true;
+        }
+      })
+      .catch(() => {});
+  } else {
+    window.addEventListener('deviceorientation', onDeviceTilt);
+    tiltBound = true;
+  }
+}
+
+function startGame() {
+  enableTiltControls();
+  cancelAnimationFrame(rafId);
+  score       = 0;
+  cameraTop   = 0;
+  ball        = makeBall();
+  gloves      = [];
+  particles   = [];
+  trailPoints = [];
+  prevBallX   = ball.x;
+  spawnInitialBats();
+  showScreen(null);
+  state    = 'play';
+  lastTime = performance.now();
+  rafId    = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  state = 'over';
+  cancelAnimationFrame(rafId);
+  if (score > best) {
+    best = score;
+    localStorage.setItem('skybats_best', best);
+  }
+  $('go-score').textContent   = score;
+  $('go-best').textContent    = best;
+  $('start-best').textContent = best;
+  showScreen('over');
+}
+
+function pauseGame() {
+  if (state !== 'play') return;
+  state = 'pause';
+  cancelAnimationFrame(rafId);
+  render();
+  showScreen('pause');
+}
+
+function resumeGame() {
+  if (state !== 'pause') return;
+  showScreen(null);
+  state    = 'play';
+  lastTime = performance.now();
+  rafId    = requestAnimationFrame(loop);
+}
+
+function goHome() {
+  cancelAnimationFrame(rafId);
+  state     = 'start';
+  cameraTop = 0;
+  $('start-best').textContent = best;
+  showScreen('start');
+  drawStartBg();
+}
+
+function showScreen(name) {
+  for (const [k, el] of Object.entries(screens)) el.classList.toggle('off', k !== name);
+}
+
+// Pause button click detection on canvas
+canvas.addEventListener('click', e => {
+  if (state !== 'play') return;
+  const r = canvas.getBoundingClientRect();
+  const lx = (e.clientX - r.left) / r.width  * CW;
+  const ly = (e.clientY - r.top)  / r.height * CH;
+  const dx = lx - (CW - 38), dy = ly - 40;
+  if (dx * dx + dy * dy <= 26 * 26) pauseGame();
+});
+
+$('start-btn')   .onclick = startGame;
+$('restart-btn') .onclick = startGame;
+$('home-btn')    .onclick = goHome;
+$('resume-btn')  .onclick = resumeGame;
+$('restart2-btn').onclick = startGame;
+
+// ══════════════════════════════════════════════════════════
+// INPUT
+// ══════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') keys.left  = true;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+  if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && state === 'play')  pauseGame();
+  else if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && state === 'pause') resumeGame();
+});
+document.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') keys.left  = false;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+});
+
+function logicalXY(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  return [(clientX - r.left) / r.width * CW, (clientY - r.top) / r.height * CH];
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (state !== 'play') return;
+  const [lx, ly] = logicalXY(e.clientX, e.clientY);
+  // Don't start drag when clicking pause button
+  if ((lx - (CW - 38)) ** 2 + (ly - 40) ** 2 <= 26 * 26) return;
+  isDragging = true; pointerX = lx; dragStartX = lx; dragBallX = ball.x;
+});
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  [pointerX] = logicalXY(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', () => {
+  if (isDragging && ball) ball.vx = (pointerX - dragStartX) * 5;
+  isDragging = false;
+});
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (state !== 'play') return;
+  const t = e.changedTouches[0];
+  const [lx, ly] = logicalXY(t.clientX, t.clientY);
+  if ((lx - (CW - 38)) ** 2 + (ly - 40) ** 2 <= 28 * 28) { pauseGame(); return; }
+  activeTouch = t.identifier;
+  isDragging  = true;
+  pointerX    = lx;
+  dragStartX  = lx;
+  dragBallX   = ball.x;
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches)
+    if (t.identifier === activeTouch) [pointerX] = logicalXY(t.clientX, t.clientY);
+}, { passive: false });
+canvas.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === activeTouch) {
+      if (ball) ball.vx = (pointerX - dragStartX) * 5;
+      isDragging = false; activeTouch = null;
+    }
+  }
+}, { passive: false });
+
+// ══════════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════════
+$('start-best').textContent = best;
+loadAssets();
+</script>
+</body>
+</html>
