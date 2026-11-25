@@ -1211,10 +1211,39 @@ for (const id of ['opt-touch-start', 'opt-touch-pause']) {
   $(id).onclick = () => setControlMode('touch', '');
 }
 
+// ── Screen Wake Lock (prevents phone screen from sleeping during tilt play) ──
+let wakeLockSentinel = null;
+
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLockSentinel) return;
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => {
+      wakeLockSentinel = null;
+    });
+  } catch {
+    // Ignore if battery saver / browser policy blocks wake lock
+  }
+}
+
+async function releaseWakeLock() {
+  if (!wakeLockSentinel) return;
+  try {
+    await wakeLockSentinel.release();
+  } catch {
+    // Ignore
+  } finally {
+    wakeLockSentinel = null;
+  }
+}
+
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     detachTiltListener();
+    releaseWakeLock();
     if (state === 'play') pauseGame();
+  } else if (state === 'play') {
+    acquireWakeLock();
   }
 });
 
@@ -1225,6 +1254,7 @@ async function startGame() {
   } else {
     detachTiltListener();
   }
+  acquireWakeLock();
   cancelAnimationFrame(rafId);
   score       = 0;
   cameraTop   = 0;
@@ -1244,6 +1274,7 @@ function endGame() {
   state = 'over';
   cancelAnimationFrame(rafId);
   detachTiltListener();
+  releaseWakeLock();
   if (score > best) {
     best = score;
     localStorage.setItem('skybats_best', best);
@@ -1259,6 +1290,7 @@ function pauseGame() {
   state = 'pause';
   cancelAnimationFrame(rafId);
   detachTiltListener();
+  releaseWakeLock();
   syncControlUI();
   render();
   showScreen('pause');
@@ -1269,6 +1301,7 @@ function resumeGame() {
   showScreen(null);
   state    = 'play';
   if (isMobileDevice && controlMode === 'tilt') attachTiltListener();
+  acquireWakeLock();
   lastTime = performance.now();
   rafId    = requestAnimationFrame(loop);
 }
@@ -1276,6 +1309,7 @@ function resumeGame() {
 function goHome() {
   cancelAnimationFrame(rafId);
   detachTiltListener();
+  releaseWakeLock();
   state     = 'start';
   cameraTop = 0;
   $('start-best').textContent = best;
